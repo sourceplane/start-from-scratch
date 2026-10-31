@@ -55,7 +55,7 @@ grep -q '^    workspace: ws_SET_ME$' "$OUT/intent.yaml" || fail "a build with no
 
 # ── This repository's own intent is the template, rendered for itself ──────
 OUT="$WORK/self"
-place "$OUT" empty Empty sourceplane ws_CHANGE_ME
+place "$OUT" start-from-scratch "Start from scratch" sourceplane ws_CHANGE_ME
 diff -u "$OUT/intent.yaml" intent.yaml || fail "intent.yaml is not .baseline/product/intent.yaml rendered for this repository"
 
 echo "placement.test.sh: ok"

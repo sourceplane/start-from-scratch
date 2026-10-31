@@ -1,4 +1,4 @@
-# The empty baseline's card: what the console's Blueprints page renders and the
+# The start-from-scratch baseline's card: what the console's Blueprints page renders and the
 # platform's bootstrap door consumes.
 #
 # THIS FILE IS NOT THE BUILD. `spec.bootstrap.blueprint` names the build
@@ -13,17 +13,17 @@
 apiVersion: orun.io/v1
 kind: Blueprint
 metadata:
-  name: empty
-  displayName: Empty — a repository with nothing in it yet
+  name: start-from-scratch
+  displayName: Start from scratch — a new repository with nothing in it yet
   description: >
     The smallest thing Orunbase can build: a new repository holding an
     Orunbase intent, a README and the Orun CI workflow, linked to the
     workspace, with one onboarding epic and task on the plane. No components,
     no cloud provider, nothing deployed. Ready in about two minutes.
-  tags: [empty, starter, github]
+  tags: [starter, blank, github]
 spec:
   source:
-    repo: sourceplane/empty
+    repo: sourceplane/start-from-scratch
     # No `tag`. The registry pins it; this file is fetched at it.
 
   # ── What the operator reads first ────────────────────────────────────────

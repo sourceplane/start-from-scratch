@@ -1,10 +1,11 @@
 apiVersion: orun.dev/v1
 kind: Blueprint
 metadata:
-  name: empty
+  name: start-from-scratch
   description: >-
-    The empty baseline as a Blueprint of itself: instantiate a new repository
-    that holds only an Orunbase intent, a README and the Orun CI workflow,
+    The start-from-scratch baseline as a Blueprint of itself: instantiate a new
+    repository that holds only an Orunbase intent, a README and the Orun CI
+    workflow,
     link it to the workspace, land those files as its first pull request
     under one onboarding task, and watch the merge's CI come back green.
     Run the one phase with `--phase 01-onboarding` or `--resume`; README.md

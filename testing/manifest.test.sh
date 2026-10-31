@@ -31,7 +31,7 @@ check(card.get("apiVersion") == "orun.io/v1", "card apiVersion must be orun.io/v
 check(card.get("kind") == "Blueprint", "card kind must be Blueprint")
 check(card["metadata"]["name"] == build["metadata"]["name"],
       "card and build disagree on metadata.name")
-check(spec["source"].get("repo") == "sourceplane/empty", "spec.source.repo must be sourceplane/empty")
+check(spec["source"].get("repo") == "sourceplane/start-from-scratch", "spec.source.repo must be sourceplane/start-from-scratch")
 check("tag" not in spec["source"], "spec.source must not declare a tag: the registry pins it")
 
 # The build document the card names exists and is this one.

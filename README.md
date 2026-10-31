@@ -1,4 +1,4 @@
-# empty
+# start-from-scratch
 
 The smallest Orunbase baseline: a new repository with an Orunbase intent, a
 README and the Orun CI workflow, linked to its workspace, with one placeholder
@@ -25,14 +25,14 @@ And in the workspace, before anything is placed:
 
 ## Instantiating a repository
 
-From the Orunbase console: Baselines → `empty` → Build. The only thing it
+From the Orunbase console: Baselines → `start-from-scratch` → Build. The only thing it
 asks for is the GitHub App on the owner the repository is created under.
 
 By hand, from a checkout of a baseline tag:
 
 ```bash
-git clone --depth 1 --branch <baseline-tag> https://github.com/sourceplane/empty
-cd empty
+git clone --depth 1 --branch <baseline-tag> https://github.com/sourceplane/start-from-scratch
+cd start-from-scratch
 orun new --blueprint repo-blueprint.yaml --out ~/src/acme --run-hooks --resume \
   --set reponame=acme --set productname="Acme" --set githuborg=acme-inc
 ```
@@ -66,5 +66,5 @@ rendered for itself with the placeholder workspace `ws_CHANGE_ME`, so its own
 ## Releasing
 
 Cut `baseline-vN` from a green `main` (Actions → Baseline tag), then move the
-`empty` row's `tag` in orun-cloud's `infra/baselines-registry/baselines.yaml`,
+`start-from-scratch` row's `tag` in orun-cloud's `infra/baselines-registry/baselines.yaml`,
 in that order: the registry's preflight fetches `blueprint.yaml` at the tag.

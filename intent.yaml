@@ -2,8 +2,8 @@ apiVersion: sourceplane.io/v1
 kind: Intent
 
 metadata:
-  name: empty
-  description: "Empty — a repository on Orunbase with no components yet"
+  name: start-from-scratch
+  description: "Start from scratch — a repository on Orunbase with no components yet"
   namespace: sourceplane
 
 execution:
@@ -117,6 +117,6 @@ environments:
 
 # Repo-level catalog entity: the front page the workspace's Docs library renders.
 repo:
-  displayName: "Empty"
+  displayName: "Start from scratch"
   docs:
     overview: README.md
