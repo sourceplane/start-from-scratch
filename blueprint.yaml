@@ -1,0 +1,97 @@
+# The empty baseline's card: what the console's Blueprints page renders and the
+# platform's bootstrap door consumes.
+#
+# THIS FILE IS NOT THE BUILD. `spec.bootstrap.blueprint` names the build
+# document, `repo-blueprint.yaml`, whose one phase a runner places. This card
+# is what an operator reads before pressing Build, and
+# `testing/manifest.test.sh` compares every list below to that document.
+#
+# The registry (orun-cloud `infra/baselines-registry/baselines.yaml`) owns
+# identity and commerce — id, visibility, tier, the pinned tag. This file owns
+# the build contract. Neither restates the other, which is why there is no
+# `tag` here: this file is fetched AT the tag the registry pins.
+apiVersion: orun.io/v1
+kind: Blueprint
+metadata:
+  name: empty
+  displayName: Empty — a repository with nothing in it yet
+  description: >
+    The smallest thing Orunbase can build: a new repository holding an
+    Orunbase intent, a README and the Orun CI workflow, linked to the
+    workspace, with one onboarding epic and task on the plane. No components,
+    no cloud provider, nothing deployed. Ready in about two minutes.
+  tags: [empty, starter, github]
+spec:
+  source:
+    repo: sourceplane/empty
+    # No `tag`. The registry pins it; this file is fetched at it.
+
+  # ── What the operator reads first ────────────────────────────────────────
+  overview:
+    lede: >
+      A repository and nothing else. Its intent, README and CI land as the
+      first pull request; add a component when you are ready, and the same CI
+      plans, verifies and deploys it.
+    architecture:
+      - layer: Repository
+        items: [intent.yaml, README.md]
+      - layer: Delivery
+        items: [GitHub Actions]
+      - layer: Work
+        items: [Onboarding epic]
+    outcome:
+      - A repository linked to the workspace
+      - The Orun CI workflow, green from the first merge
+      - One onboarding epic and task to replace with real work
+
+  requires:
+    # GitHub is the only thing a bootstrap needs, and it arrives as the App
+    # installation plus the repo link, not as a connection row — so this
+    # baseline asks the workspace to connect nothing.
+    integrations: [github]
+    apiKeyRole: admin          # the repo link and the task plane need the admin floor
+
+  # Every input is collected by the console: keys are lowercase, every one
+  # carries the `pattern` its value is checked against, and a value the
+  # console already holds says so with `from`. repo-blueprint.yaml declares
+  # the same names; `repoPrivate`, `orunWorkspace` and `epicSlug` are build
+  # inputs with defaults (or filled from the build's workspace) and are not
+  # asked.
+  inputs:
+    - key: reponame
+      label: Repo name
+      pattern: "^[a-z][a-z0-9-]{1,38}$"
+      # The operator picked the repository; its name IS this value.
+      from: repo.name
+    - key: productname
+      label: Display name
+      pattern: "^[A-Za-z0-9][A-Za-z0-9 .,'&-]{1,48}$"
+      help: The name the README and the workspace catalog show for this repository.
+      example: Acme
+    - key: githuborg
+      label: GitHub organisation
+      pattern: "^[A-Za-z0-9][A-Za-z0-9-]*$"
+      help: The GitHub org or user the repository is created under.
+      # DERIVED FROM THE CHOSEN REPOSITORY: its owner IS this value.
+      from: repo.owner
+
+  # No `secrets`: nothing here is deployed, so nothing is minted.
+
+  # ── PREVIEW ONLY. repo-blueprint.yaml's run-level `hooks.preInstantiate`
+  # opens these — the epic, its milestone, its task — before the phase
+  # places. Idempotent by identity, so a re-run finds what it made before.
+  programme:
+    epicSlug: onboarding               # = repo-blueprint.yaml's `epicSlug` default
+    epicName: "Onboarding — {productname}"
+    milestones:
+      - name: 01-onboarding
+
+  bootstrap:
+    # THE BUILD DOCUMENT. There is no umbrella workflow and no agent brief:
+    # the phase is declared in it and orun runs it.
+    blueprint: repo-blueprint.yaml
+    # The phase's expectedMinutes. An estimate until a bootstrap measures it.
+    expectedMinutes: 2
+    tokenChannel: ORUN_TOKEN_FILE   # how a runner hands over its refreshed token
+
+  # No `verify`: an empty repository serves no URL.

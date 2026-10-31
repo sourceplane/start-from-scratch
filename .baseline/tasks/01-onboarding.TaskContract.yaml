@@ -1,0 +1,23 @@
+# Task contract template for the 01-onboarding landing, the repository's first
+# pull request. Unbound to a key on purpose: `orun.task/ensure@v1` seals and
+# attaches it to the key the allocator issues. It lives under `.baseline/`
+# because this repository has no work tree of its own, and an unkeyed contract
+# in one would be an error. gates: [] is a DECLARATION: the merge alone
+# finishes this task, and the main convergence after it is what the bootstrap
+# watches.
+#
+# `affects` names files, not components: the empty repository has none.
+apiVersion: orun.io/v1
+kind: TaskContract
+spec:
+  goal: The repository is born, linked to its workspace, and carries an intent, a README and the Orun CI workflow on main
+  affects:
+    - intent.yaml
+    - README.md
+    - .gitignore
+    - .github/workflows/ci.yml
+  doneWhen:
+    - repo pushed, main pinned as default, workspace linked
+    - the onboarding pull request merged
+    - the main convergence after it is green
+  gates: []

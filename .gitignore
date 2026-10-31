@@ -1,0 +1,3 @@
+# orun's local working files: staged job trees, object-model caches, plans.
+**/.orun/
+plan.json

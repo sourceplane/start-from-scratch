@@ -1,0 +1,122 @@
+apiVersion: sourceplane.io/v1
+kind: Intent
+
+metadata:
+  name: {{ .reponame }}
+  description: "{{ .productname }} — a repository on Orunbase with no components yet"
+  namespace: {{ kebab .githuborg }}
+
+execution:
+  state:
+    backendUrl: https://api-edge-prod.oruncloud.workers.dev
+    # Declared, enforced tenancy: the workspace claim is sent on every remote op
+    # (including the credential-free CI OIDC exchange) so the platform can
+    # enforce claim ⊆ authorized. Declaring it implies strict mode — a
+    # non-interactive run that resolves no workspace fails fast.
+    #
+    # A bootstrap writes the repository's workspace here. `ws_CHANGE_ME` is
+    # the one value `ci.yml` treats as "not linked yet" and plans nothing for;
+    # `ws_SET_ME` (a bootstrap that had no workspace to write) fails loudly.
+    workspace: {{ default "ws_SET_ME" .orunWorkspace }}
+    requireOrg: true
+    # Push the resolved catalog after a successful plan on the default branch,
+    # keeping the workspace-global catalog head fresh without an explicit
+    # `--push-catalog`.
+    autopushCatalog: true
+  # Lanes: CI runs one GitHub job per LANE, not per orun job.
+  lanes:
+    mode: auto
+    maxLanes: 6
+    concurrency: 6
+
+compositions:
+  sources:
+    # The composition stack every Orunbase baseline builds on, consumed as a
+    # published OCI artifact. Pinned: a bare reference would resolve
+    # `:latest` and let a catalog release change this repository's execution
+    # contracts without a commit here. Bumping the tag is a deliberate upgrade.
+    - name: stack-tectonic
+      kind: oci
+      ref: oci://ghcr.io/sourceplane/stack-tectonic:0.19.0
+  resolution:
+    precedence:
+      - stack-tectonic
+    bindings:
+      terraform: stack-tectonic
+      cloudflare-domain: stack-tectonic
+      db-migrate: stack-tectonic
+
+# No `discovery` block: with no roots declared orun reads the whole tree, so
+# the first `component.yaml` added anywhere is found. Declare roots
+# (apps/, infra/, packages/, tests/) once the layout settles.
+
+automation:
+  triggerBindings:
+    github-pull-request:
+      description: Pull request validation
+      on:
+        provider: github
+        event: pull_request
+        actions:
+          - opened
+          - synchronize
+          - reopened
+          - ready_for_review
+        baseBranches:
+          - main
+      plan:
+        scope: changed
+        base: pull_request.base.sha
+        head: pull_request.head.sha
+
+    github-push-main:
+      description: Main branch convergence after merge
+      on:
+        provider: github
+        event: push
+        branches:
+          - main
+
+    local-development:
+      description: Local runs
+      on:
+        provider: local
+
+environments:
+  dev:
+    description: Verify-only. Pull requests plan and verify here; nothing is deployed.
+    activation:
+      triggerRefs:
+        - github-pull-request
+        - github-push-main
+        - local-development
+    dependencyMode: advisory
+    policies:
+      requireApproval: "false"
+
+  stage:
+    description: Deployed on every merge to main, before prod.
+    activation:
+      triggerRefs:
+        - github-pull-request
+        - github-push-main
+    policies:
+      requireApproval: "false"
+
+  prod:
+    description: Deploys after stage converges on the same commit.
+    activation:
+      triggerRefs:
+        - github-pull-request
+        - github-push-main
+    promotion:
+      dependsOn:
+        - environment: stage
+    policies:
+      requireApproval: "false"
+
+# Repo-level catalog entity: the front page the workspace's Docs library renders.
+repo:
+  displayName: "{{ .productname }}"
+  docs:
+    overview: README.md

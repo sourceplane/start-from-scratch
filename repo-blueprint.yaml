@@ -1,0 +1,258 @@
+apiVersion: orun.dev/v1
+kind: Blueprint
+metadata:
+  name: empty
+  description: >-
+    The empty baseline as a Blueprint of itself: instantiate a new repository
+    that holds only an Orunbase intent, a README and the Orun CI workflow,
+    link it to the workspace, land those files as its first pull request
+    under one onboarding task, and watch the merge's CI come back green.
+    Run the one phase with `--phase 01-onboarding` or `--resume`; README.md
+    has the operator steps.
+
+# ── INPUTS ────────────────────────────────────────────────────────────────
+# The card (blueprint.yaml) declares a subset of these with the patterns the
+# console validates; testing/manifest.test.sh fails if a card input is not one
+# of these, or if one of these is required and nothing supplies it.
+inputs:
+  reponame:
+    type: string
+    pattern: "^[a-z][a-z0-9-]*$"
+    required: true
+    description: Repo slug (e.g. acme) — intent metadata.name and the repository's name.
+  productname:
+    type: string
+    required: true
+    description: The display name (e.g. "Acme") — the README's title and the catalog's display name.
+  githuborg:
+    type: string
+    pattern: "^[A-Za-z0-9][A-Za-z0-9-]*$"
+    required: true
+    description: >-
+      GitHub owner the repository is created under. 01-onboarding waits for
+      the App installation on THIS owner before it creates anything: the
+      platform learns of a pull request only through the installation on the
+      account that owns the repository.
+  repoPrivate:
+    type: boolean
+    default: true
+    description: >-
+      Whether the repository is created private. `orun.repo/ensure@v1` only
+      sets it at creation — an existing repository keeps the visibility it has.
+  orunWorkspace:
+    type: string
+    default: ""
+    # Unset, it is the workspace the build runs in (ORUN_WORKSPACE, which a
+    # console build's sandbox always sets). A value set on the command line
+    # wins.
+    from: workspace
+    description: >-
+      Orun Cloud workspace (ws_…) the repository is linked to. With none
+      anywhere, intent.yaml gets the placeholder ws_SET_ME, which CI fails on
+      loudly rather than claiming another tenant's workspace.
+  epicSlug:
+    type: string
+    pattern: "^[a-z][a-z0-9-]*$"
+    default: onboarding
+    description: >-
+      The epic this bootstrap tracks itself under. Found by slug, so a run
+      that starts fresh and a run that resumes find the same work.
+
+# ── SOURCES ───────────────────────────────────────────────────────────────
+# The baseline is this repository itself. Run `orun new` from its root so
+# `path: .` resolves to it; orun pins it by digest before any module reads it.
+sources:
+  - name: baseline
+    kind: dir
+    path: .
+
+# Never carried into a repository built from here. A pattern with no glob is
+# matched against each path SEGMENT, one with a glob against the whole path —
+# so the two factory workflows need their `**/`.
+ignore:
+  - .orun
+  - plan.json
+  - "**/.env"
+  - "**/.env.*"
+  # THE FACTORY'S OWN LANES. `github-workflows` copies the whole of `.github`;
+  # `baseline.yml` runs `testing/`, which is never placed, and `tag.yml` cuts
+  # baseline tags a product does not have.
+  - "**/.github/workflows/baseline.yml"
+  - "**/.github/workflows/tag.yml"
+
+# ── MODULES ───────────────────────────────────────────────────────────────
+# Four, one per file the repository starts with. Nothing else of this
+# repository (blueprint.yaml, this file, .baseline/, testing/) can ship by
+# accident: testing/placement.test.sh holds the placed set to exactly these.
+modules:
+  # The two files that carry the repository's identity are TEMPLATES, rendered
+  # from the inputs — there is nothing else to rename.
+  - name: root-intent
+    mode: template
+    source: baseline
+    from: .baseline/product/intent.yaml
+    to: intent.yaml
+    bind: [intent.yaml]
+  - name: root-readme
+    mode: template
+    source: baseline
+    from: .baseline/product/README.md
+    to: README.md
+    bind: [README.md]
+  - name: root-gitignore
+    mode: copy
+    source: baseline
+    from: .gitignore
+    to: .gitignore
+  - name: github-workflows
+    mode: copy
+    source: baseline
+    from: .github
+    to: .github
+
+# ── THE WORK, UP FRONT ────────────────────────────────────────────────────
+# One placeholder epic, one milestone, one task: the onboarding landing. All
+# of it is on the plane before the phase places a file, and all of it is
+# find-or-create BY IDENTITY (the epic by slug, the milestone by name, the
+# task by title), so a resume finds what the first run made. In the
+# background: nothing before the landing reads the task plane, and the hook
+# that does (`task`, below) waits for this list to finish.
+hooks:
+  preInstantiate:
+    - id: epic
+      uses: orun.task/ensure@v1
+      background: true
+      with:
+        kind: epic
+        slug: "{{ .inputs.epicSlug }}"
+        name: "Onboarding — {{ .inputs.productname }}"
+        description: >-
+          A placeholder epic for {{ .inputs.githuborg }}/{{ .inputs.reponame }}:
+          its one task is the pull request that brought the repository its
+          intent, README and CI. Close it and write the first real epic next.
+        owner: me
+    - id: m01
+      uses: orun.task/ensure@v1
+      background: true
+      with:
+        kind: milestone
+        epic: "{{ .inputs.epicSlug }}"
+        name: 01-onboarding
+        exitCriteria:
+          - repository created under {{ .inputs.githuborg }} and linked to the workspace
+          - intent.yaml, README.md and the CI workflow merged to main
+          - the merge's CI run green
+    - id: t01
+      uses: orun.task/ensure@v1
+      background: true
+      with:
+        kind: task
+        epic: "{{ .inputs.epicSlug }}"
+        milestone: 01-onboarding
+        name: "Onboard the repository"
+        brief: >-
+          Create {{ .inputs.githuborg }}/{{ .inputs.reponame }}, link it to
+          the workspace, and land its intent, README and Orun CI workflow,
+          named for {{ .inputs.productname }}, as its first pull request.
+        prefix: BASE
+        contract: .baseline/tasks/01-onboarding.TaskContract.yaml
+
+# ── PHASES ────────────────────────────────────────────────────────────────
+# One. The milestone carries the phase's name: it is the identity the
+# engine's phase events, the plane's evidence and the console's rows meet on,
+# and the card's `programme.milestones` names the same list.
+phases:
+  - name: 01-onboarding
+    title: The repository, onboarded
+    description: A new repository with an intent, a README and the Orun CI workflow, linked to the workspace and landed as one pull request.
+    # An estimate: the App check, the repository, the link, a landing checked
+    # here, and one CI run on main that plans nothing.
+    expectedMinutes: 2
+    narrate:
+      start:  "Creating the repository and landing its intent, README and CI workflow in one pull request. Usually about {{ .meta.expectedMinutes }} minutes."
+      await:  "The merge's CI run is planning the repository. There is nothing to deploy yet, so it should be quick."
+      done:   "{{ .inputs.reponame }} is on main — {{ .meta.files }} files, linked to its workspace, its CI green. That took {{ .meta.elapsed }}."
+      failed: "The repository is not onboarded yet. The step above names where it stopped; anything already created is still there, and a re-run finds it."
+    modules: [github-workflows, root-gitignore, root-intent, root-readme]
+    # THE PLATFORM MUST BE ABLE TO SEE THE REPOSITORY BEFORE IT EXISTS: the
+    # landing files under its task, and the platform learns of a pull request
+    # only through the GitHub App installation on the account that OWNS the
+    # repository. So that installation is waited for here, like a consent.
+    requires:
+      probe:
+        - id: providers
+          uses: orun.doctor/check@v1
+          with:
+            providers: [github]
+            githubOwner: "{{ .inputs.githuborg }}"
+            waitSeconds: 600
+            pollSeconds: 20
+    hooks:
+      post:
+        # The landing commits; these only make the output a repository with a
+        # populated index.
+        - id: git-init
+          run: ["git", "init", "-q"]
+        - id: git-stage
+          run: ["git", "add", "-A"]
+        - id: repo
+          uses: orun.repo/ensure@v1
+          narrate: "The repository exists at {{ .inputs.githuborg }}/{{ .inputs.reponame }}."
+          with:
+            owner: "{{ .inputs.githuborg }}"
+            name: "{{ .inputs.reponame }}"
+            private: "{{ .inputs.repoPrivate }}"
+        # THE REPOSITORY MUST BE THE WORKSPACE'S before anything lands in it,
+        # or its CI cannot reach the platform: every lane authenticates over
+        # GitHub OIDC, resolved through the repo link. `link` may be refused
+        # where the credential cannot write links and the platform has linked
+        # it already, so it is best effort and `check` is the gate.
+        - id: link
+          run:
+            - bash
+            - -c
+            - |
+              orun cloud link --org "$1" || true
+              orun cloud check --org "$1" || {
+                echo "$2 is not linked to workspace $1 — its CI cannot authenticate. Link it (orun cloud link --org $1, or the console's Git Repos) and re-run this phase." >&2
+                exit 1
+              }
+            - link
+            - "{{ .inputs.orunWorkspace }}"
+            - "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
+        # The task this landing closes, and its key. The first hook that needs
+        # the plane, so the one that waits for the background list above.
+        - id: task
+          uses: orun.task/ensure@v1
+          with:
+            kind: task
+            epic: "{{ .inputs.epicSlug }}"
+            milestone: "{{ .phase.name }}"
+            name: "Onboard the repository"
+            prefix: BASE
+            contract: .baseline/tasks/01-onboarding.TaskContract.yaml
+        # Checked HERE (`checks: local`): `orun validate`, then `orun plan` as
+        # the pull request and the merge would plan it, before anything is
+        # pushed. The PR's own CI still runs; nothing waits for it.
+        - id: land
+          uses: orun.pr/land@v1
+          narrate: "The onboarding pull request is merged into main."
+          with:
+            task: "{{ .phase.hooks.task.outputs.key }}"
+            epic: "{{ .inputs.epicSlug }}"
+            branchSlug: "{{ .phase.name }}"
+            title: "chore: onboard {{ .inputs.productname }} — intent, README and CI"
+            checks: local
+      # The CI run for the commit THIS landing merged. It plans nothing yet,
+      # which is the point: a green run proves the repository's link, its
+      # OIDC exchange and its intent all work before anyone adds a component.
+      await:
+        - id: converge
+          uses: orun.run/watch@v1
+          narrate: "The merge's CI run came back green."
+          with:
+            sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
+            repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
+            resumeBudget: 2
+            waitSeconds: 600
+            pollSeconds: 5

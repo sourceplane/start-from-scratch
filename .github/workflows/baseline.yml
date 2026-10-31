@@ -1,0 +1,60 @@
+name: Baseline CI
+
+# THE FACTORY'S OWN LANES — this repository tested as a BASELINE: its card
+# agrees with its build document, the build document parses with the orun a
+# bootstrap runs, and the placed repository is exactly the four files it
+# promises and plans.
+#
+# NOT IN ci.yml: `repo-blueprint.yaml`'s `github-workflows` module copies the
+# whole `.github` directory into every repository built from here. These jobs
+# run `testing/`, which is never placed, so this file is in the blueprint's
+# `ignore` list (and testing/manifest.test.sh fails if it is not).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: baseline-ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Contract test (manifest)
+        run: |
+          set -euo pipefail
+          python3 -c 'import yaml' 2>/dev/null || pip install --quiet pyyaml
+          bash testing/manifest.test.sh
+
+  # Pinned at the bootstrap floor: only the orun a bootstrap runs can say
+  # whether the document is one a bootstrap can run. `--status` parses it,
+  # validates every hook against the action registry, compiles every
+  # narration template, and writes nothing.
+  blueprint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: sourceplane/orun-action@v1.2.0
+        with:
+          version: v2.88.0
+      - name: repo-blueprint.yaml, read by the pinned CLI
+        run: |
+          set -euo pipefail
+          orun --version
+          orun new --blueprint repo-blueprint.yaml --status \
+            --out "$(mktemp -d)" \
+            --set reponame=acme \
+            --set "productname=Acme" \
+            --set githuborg=acme-inc
+      - name: placement — the offline bootstrap, and the repository's own plan
+        run: |
+          git config --global user.email ci@example.invalid
+          git config --global user.name "baseline ci"
+          bash testing/placement.test.sh
